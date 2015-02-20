@@ -8,6 +8,7 @@ use Rack::Session::Cookie, :key => 'rack.session',
 
 BLACKJACK_AMOUNT = 21
 DEALER_MIN_HIT = 17
+INITIAL_BETTING_AMOUNT = 500
 
 helpers do
   def calculate_total(cards)
@@ -54,19 +55,21 @@ helpers do
   end
 
   def winner!(msg)
-    @success = "<strong>#{session[:player_name]} wins!</strong> #{msg}"
+    @winner = "<strong>#{session[:player_name]} wins!</strong> #{msg}"
     @show_hit_or_stay_buttons = false
+    session[:player_pot] = session[:player_pot] + session[:player_bet]
     @play_again = true
   end
 
   def loser!(msg)
-    @error = "<strong>#{session[:player_name]} loses.</strong> #{msg}"
+    @loser = "<strong>#{session[:player_name]} loses.</strong> #{msg}"
     @show_hit_or_stay_buttons = false
+    session[:player_pot] = session[:player_pot] - session[:player_bet]
     @play_again = true
   end
 
   def tie!(msg)
-    @success = "<strong>It's a tie!</strong> #{msg}"
+    @winner = "<strong>It's a tie!</strong> #{msg}"
     @show_hit_or_stay_buttons = false
     @play_again = true
   end
@@ -77,7 +80,6 @@ before do
 end
 
 get '/' do
-#  session[:player_name] = nil
   if session[:player_name]
     redirect '/game'
   else
@@ -87,6 +89,7 @@ end
 
 get '/new_player' do
   @new_player_screen = true
+  session[:player_pot] = INITIAL_BETTING_AMOUNT
   erb :new_player
 end
 
@@ -97,7 +100,30 @@ post '/new_player' do
   end
 
   session[:player_name] = params[:player_name]
-  redirect '/game'
+  redirect '/bet'
+end
+
+get '/bet' do
+  @new_player_screen = false
+  session[:player_bet] = nil
+  if session[:player_pot].to_i == 0
+    erb :loser
+  else
+    erb :bet
+  end
+end
+
+post '/bet' do
+  if params[:bet_amount].empty? || params[:bet_amount] =~ /[A-Za-z]/ || params[:bet_amount].to_i == 0
+    @error = "Please enter a number"
+    halt erb(:bet)
+  elsif params[:bet_amount].to_i > session[:player_pot].to_i
+    @error = "Bet amount cannot be greater than what you have ($#{session[:player_pot]})."
+    halt erb(:bet)
+  else
+    session[:player_bet] = params[:bet_amount].to_i
+    redirect '/game'
+  end
 end
 
 get '/game' do
@@ -139,7 +165,7 @@ post '/game/player/hit' do
     loser!("It looks like #{session[:player_name]} busted.")
   end
 
-  erb :game
+  erb :game, layout: false
 end
 
 post '/game/player/stay' do
@@ -167,7 +193,7 @@ get '/game/dealer' do
     @show_dealer_hit_button = true
   end
 
-  erb :game
+  erb :game, layout: false
 end
 
 post '/game/dealer/hit' do
@@ -189,15 +215,20 @@ get '/game/compare' do
     winner!("#{session[:player_name]} stayed at #{player_total}, and the dealer stayed at #{dealer_total}.")
 
   else
-    tie!("Both #{session[:player_name]} and the dealer stayed at #{session[:player_total]}.")
+    tie!("Both #{session[:player_name]} and the dealer stayed at #{player_total}.")
   end
 
-  erb :game
+  erb :game, layout: false
 end
 
 get '/game_over' do
   erb :game_over
 end
+
+get '/loser' do
+  erb :loser
+end
+
 
 
 
