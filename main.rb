@@ -81,7 +81,7 @@ end
 
 get '/' do
   if session[:player_name]
-    redirect '/game'
+    redirect '/new_game'
   else
     redirect '/new_player'
   end
@@ -122,11 +122,11 @@ post '/bet' do
     halt erb(:bet)
   else
     session[:player_bet] = params[:bet_amount].to_i
-    redirect '/game'
+    redirect '/new_game'
   end
 end
 
-get '/game' do
+get '/new_game' do
   @new_player_screen = false
   session[:turn] = session[:player_name]
 
@@ -148,9 +148,14 @@ get '/game' do
       winner!("#{session[:player_name]} hit blackjack.")
     end
 
+  
+  redirect '/game'
+
+end
+
+get '/game' do
+  @new_player_screen = false
   erb :game
-
-
 end
 
 post '/game/player/hit' do
@@ -178,7 +183,7 @@ end
 get '/game/dealer' do
   @new_player_screen = false
   session[:turn] = "dealer"
-
+  
   @show_hit_or_stay_buttons = false
 
   dealer_total = calculate_total(session[:dealer_cards])
